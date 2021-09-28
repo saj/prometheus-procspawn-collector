@@ -37,6 +37,37 @@
  * the include of your alternate allocator if needed (not needed in order
  * to use the default libc allocator). */
 
-#define s_malloc malloc
-#define s_realloc realloc
-#define s_free free
+#ifndef __SDSALLOC_H
+#define __SDSALLOC_H
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#define s_malloc  safe_malloc
+#define s_realloc safe_realloc
+#define s_free    free
+
+static const char *const oom = "out of memory\n";
+
+static inline void *
+safe_malloc(size_t size) {
+    void *p = malloc(size);
+    if (!p) {
+        write(2, oom, strlen(oom));
+        abort();
+    }
+    return p;
+}
+
+static inline void *
+safe_realloc(void *ptr, size_t size) {
+    void *p = realloc(ptr, size);
+    if (!p) {
+        write(2, oom, strlen(oom));
+        abort();
+    }
+    return p;
+}
+
+#endif // ifndef __SDSALLOC_H
