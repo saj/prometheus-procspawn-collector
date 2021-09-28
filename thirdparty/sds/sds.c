@@ -144,6 +144,13 @@ sds sdsnewlen(const void *init, size_t initlen) {
     return s;
 }
 
+sds sdsnewcap(size_t initcap) {
+    sds s = sdsnewlen(SDS_NOINIT, initcap);
+    if (s == NULL) return NULL;
+    sdsclear(s);
+    return s;
+}
+
 /* Create an empty (zero length) sds string. Even in this case the string
  * always has an implicit null term. */
 sds sdsempty(void) {
