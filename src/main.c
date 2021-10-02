@@ -262,7 +262,7 @@ main(int argc, char *argv[]) {
   errno = 0;
   if (rename(tname, fname)) {
     unlink(tname);
-    die("rename: %s", fname);
+    die("rename: %s:", fname);
   }
 
   exit(res.status);

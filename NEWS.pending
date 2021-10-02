@@ -1,3 +1,4 @@
 pending release
 
   * Fix minor memleak in --label parsing.
+  * Print reason for rename() failure.
