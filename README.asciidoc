@@ -1,0 +1,85 @@
+:uri-prom: https://prometheus.io/
+:uri-prom-datamodel: https://prometheus.io/docs/concepts/data_model/
+:uri-prom-textfile: https://github.com/prometheus/node_exporter#textfile-collector
+:uri-snooze: https://github.com/leahneukirchen/snooze
+
+The prometheus-procspawn-collector, henceforth ppc, is a {uri-prom}[Prometheus]
+{uri-prom-textfile}[textfile collector] that instruments short-lived unix jobs
+with a consistent set of `wait(2)` metrics.  Instrumented jobs may be opaque: no
+modifications need be made to the jobs themselves.  ppc was conceived to wrap
+diverse processes spawned from automatic job schedulers -- like `cron(8)`,
+systemd timer units, and {uri-snooze}[`snooze(1)`] -- but is not limited to
+these settings.  Any unix process is easily instrumented so long as you have
+some control over how the process is started.
+
+ppc exposes <<metrics,metrics>> that summarise process exit status and timing.
+
+To use, prefix your job argument vector as follows:
+
+----
+# Before, without instrumentation:
+prog arg1 arg2 ...
+
+# After, with instrumentation:
+prometheus-procspawn-collector name prog arg1 arg2 ...
+
+# Jobs may be hardened with chain loading in the usual fashion, e.g.:
+prometheus-procspawn-collector -- name \
+  flock -n ... \
+  timeout -v ... \
+  s6-softlimit ... \
+  prog arg1 arg2 ...
+----
+
+`name` is an arbitrary ppc job name that is used to distinguish series for
+different jobs on the same host.  (_Job_ here is in reference to a ppc
+instrumented job, like the name of a cron job -- not a Prometheus scrape job.)
+The value of this argument is exposed in a Prometheus label with name
+`collector_job`.
+
+ppc will fork and exec `prog` in the usual fashion, wait for `prog` to exit,
+then write metrics to the filesystem.  Exit status from `prog` is propagated by
+ppc.  `prog` inherits all file descriptors.  ppc will never write to stdout or
+stderr except in the case of an error.  Common trappable signals are forwarded
+to `prog` if ppc is signalled.
+
+ppc is known to work on FreeBSD, Linux (also with musl libc), and macOS.
+
+
+[#metrics]
+== Metrics
+
+All metrics apply to the last instrumented child process unless otherwise stated.
+
+* `procspawn_last_exit_status` (gauge):  Process exit status as a value between
+  0 and 255 (inclusive).  Value is >128 if terminated by signal.
+
+* `procspawn_last_duration_seconds` (gauge):  Elapsed time consumed by the job.
+  Measurements derive from observations of the `CLOCK_MONOTONIC` time source.
+
+* `procspawn_last_started_timestamp_seconds` (gauge):  Wallclock time of last
+  start as seconds since unix epoch.  This value is only as accurate as your
+  local clock, which is hopefully synchronised to some external source of truth.
+
+The Prometheus node_exporter provides `node_textfile_mtime_seconds`.  ppc will
+touch this mtime after every execution if it is able to start and write to the
+filesystem.
+
+
+[#config]
+== Configuration
+
+Some behaviours may be configured at compile time; see link:src/config.h[`config.h`].
+
+`--directory PATH` specifies the directory path to which metrics files are
+written.  This value must align with the `--collector.textfile.directory` option
+of the Prometheus node_exporter.  `PATH` must exist on the filesystem.  Defaults
+to the current working directory.  This option is best set to local site
+preference at compile time.  Metrics are atomically written to a file with name
+`procspawn_${name}.prom`.
+
+`--label LNAME=LVALUE` attaches an arbitrary Prometheus label to all exposed
+metrics.  ppc will immediately terminate with non-zero status if `LNAME` is not
+a {uri-prom-datamodel}[valid label name].  This option may appear many times in
+the argument vector if multiple labels are desired.  In the case of duplicate
+`LNAME` values, only the last pair is honoured.
