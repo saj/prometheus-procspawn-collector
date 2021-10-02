@@ -74,7 +74,6 @@ parse_args(int argc, char *argv[], struct ppc_args *res) {
         bufrepr = sdscatrepr(bufrepr, label.name, sdslen(label.name));
         fprintf(stderr, PPC_PROG_NAME ": invalid label name at index %d: %s\n", optind - 1,
                 bufrepr);
-        sdsfree(bufrepr);
         usage();
       }
 
@@ -82,11 +81,11 @@ parse_args(int argc, char *argv[], struct ppc_args *res) {
         bufrepr = sdscatrepr(bufrepr, label.value, sdslen(label.value));
         fprintf(stderr, PPC_PROG_NAME ": invalid label value at index %d: %s\n", optind - 1,
                 bufrepr);
-        sdsfree(bufrepr);
         usage();
       }
 
       res->labelset = ppc_labelset_append(res->labelset, label);
+      sdsfree(bufrepr);
       break;
     }
 
